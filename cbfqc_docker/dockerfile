@@ -1,0 +1,52 @@
+# Use R base image
+FROM rocker/shiny
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    cmake \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libtiff5-dev \
+    pkg-config \
+    libgit2-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set C++ flags (needed for ragg)
+ENV PKG_CXXFLAGS="-fpermissive"
+
+# Install R package manager and dependencies
+RUN R -e "install.packages('renv', repos='https://cran.rstudio.com/')"
+
+# Install ragg package from binaries
+RUN R -e "install.packages('ragg', repos='https://cran.rstudio.com/')"
+
+# Set working directory
+WORKDIR /usr/src/app
+
+# Copy the project files (including renv.lock and renv directory)
+COPY renv.lock ./
+COPY renv/ ./renv/
+COPY .Rprofile ./
+
+# Restore R package dependencies
+RUN R -e "renv::restore()"
+
+# Debugging: List installed packages
+RUN R -e "installed.packages()"
+
+# Change permissions (Shiny Server requires proper permissions)
+RUN chmod -R 755 /srv/shiny-server
+
+# Expose port 3838 (default for Shiny Server)
+EXPOSE 3838
+
+# Default command: open R session
+CMD ["R"]
